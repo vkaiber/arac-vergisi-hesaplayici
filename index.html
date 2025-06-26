@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Araç Vergi Analizi</title>
+    
+    <link rel="icon" type="image/png" href="favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        // Tailwind CSS için özel renkleri ve ayarları tanımlıyoruz
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#18181B',
+                        'dark-card': '#27272A',
+                        'dark-border': '#3F3F46',
+                        'brand-purple': '#7C3AED',
+                        'brand-purple-hover': '#6D28D9',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+            background-color: tailwind.theme.colors['dark-bg']; /* Arka plan rengini buradan alıyoruz */
+        }
+
+        #results {
+            transition: all 0.5s ease-in-out;
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        #results.show {
+            max-height: 2200px;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        select {
+             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+             background-position: right 0.5rem center;
+             background-repeat: no-repeat;
+             background-size: 1.5em 1.5em;
+             padding-right: 2.5rem;
+             -webkit-appearance: none;
+             -moz-appearance: none;
+             appearance: none;
+        }
+        .donut-segment {
+            transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .spinner {
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top: 2px solid #fff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="w-full max-w-3xl mx-auto p-4 py-12 space-y-12">
+        
+        <div class="text-center">
+            <h1 class="text-4xl md:text-5xl font-extrabold">Araç Fiyat Analizi</h1>
+            <p class="text-zinc-400 mt-2 text-lg">Aracınızın gerçek maliyetini modern bir arayüzle keşfedin.</p>
+        </div>
+
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-6 md:p-8">
+            <form id="tax-form" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="price" class="block text-sm font-medium text-zinc-300 mb-2">Aracın Anahtar Teslim Fiyatı</label>
+                        <input type="text" id="price" name="price" class="w-full p-3 bg-white text-black placeholder:text-gray-400 border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple focus:border-brand-purple outline-none transition" placeholder="₺ 3.000.000">
+                    </div>
+                    <div>
+                        <label for="vehicle-type" class="block text-sm font-medium text-zinc-300 mb-2">Araç Tipi</label>
+                        <select id="vehicle-type" name="vehicle-type" class="w-full p-3 bg-white text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple focus:border-brand-purple outline-none transition">
+                            <option value="gasoline_diesel">Benzinli / Dizel</option>
+                            <option value="electric">Elektrikli</option>
+                            <option value="hybrid">Hibrit</option>
+                        </select>
+                    </div>
+                     <div id="engine-spec-container">
+                        <label for="engine-spec" class="block text-sm font-medium text-zinc-300 mb-2">Motor Silindir Hacmi</label>
+                        <select id="engine-spec" name="engine-spec" class="w-full p-3 bg-white text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple focus:border-brand-purple outline-none transition">
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" id="submit-button" class="w-full bg-brand-purple hover:bg-brand-purple-hover text-white font-bold py-3 rounded-lg shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-400/50 flex items-center justify-center disabled:opacity-75">
+                    <span id="button-text">Analiz Et</span>
+                    <div id="button-spinner" class="spinner hidden ml-3"></div>
+                </button>
+            </form>
+        </div>
+        
+        <div id="error-message" class="hidden p-4 bg-red-900/50 border border-red-500 text-red-300 rounded-lg text-center"></div>
+
+        <div id="results" class="space-y-12">
+            <div class="bg-dark-card border border-dark-border rounded-2xl p-6 md:p-8">
+                <h2 class="text-2xl font-bold text-center mb-6">Hesaplama Detayları</h2>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-base p-3">
+                        <span class="text-zinc-400">Aracın Vergisiz Fiyatı</span>
+                        <span id="base-price" class="font-bold text-green-400"></span>
+                    </div>
+                    <div class="border-t border-dark-border"></div>
+                    <h3 class="text-md font-semibold text-zinc-400 pt-3">Vergi Dökümü</h3>
+                    <div class="flex justify-between items-center text-base p-3">
+                        <span class="text-zinc-400">ÖTV Oranı</span>
+                        <span id="otv-rate" class="font-semibold"></span>
+                    </div>
+                    <div class="flex justify-between items-center text-base p-3">
+                        <span class="text-zinc-400">ÖTV Tutarı</span>
+                        <span id="otv-amount" class="font-semibold"></span>
+                    </div>
+                    <div class="flex justify-between items-center text-base p-3">
+                        <span class="text-zinc-400">KDV Tutarı (%20)</span>
+                        <span id="kdv-amount" class="font-semibold"></span>
+                    </div>
+                    <div class="border-t border-dark-border"></div>
+                    <div class="flex justify-between items-center text-base p-3">
+                        <span class="text-zinc-400">Toplam Vergi</span>
+                        <span id="total-tax" class="font-bold text-red-400"></span>
+                    </div>
+                    <div class="flex justify-between items-center text-lg p-3 bg-brand-purple rounded-lg">
+                        <span class="font-bold">Anahtar Teslim Fiyatı</span>
+                        <span id="final-price" class="font-bold"></span>
+                    </div>
+                </div>
+                
+                 <div class="border-t border-dark-border pt-6 mt-6">
+                    <h3 class="text-md font-semibold text-center text-zinc-400 mb-4">Paranın Yolculuğu</h3>
+                    <div class="flex flex-col md:flex-row items-center gap-6">
+                        <div class="relative flex-shrink-0">
+                            <svg viewBox="0 0 36 36" class="w-40 h-40">
+                                <circle cx="18" cy="18" r="15.9155" class="stroke-current text-dark-border" fill="transparent" stroke-width="3.8"></circle>
+                                <circle id="donut-segment-kdv" cx="18" cy="18" r="15.9155" class="stroke-current text-red-500 donut-segment" fill="transparent" stroke-width="3.8" stroke-dasharray="0, 100" transform="rotate(-90 18 18)"></circle>
+                                <circle id="donut-segment-otv" cx="18" cy="18" r="15.9155" class="stroke-current text-orange-500 donut-segment" fill="transparent" stroke-width="3.8" stroke-dasharray="0, 100" transform="rotate(-90 18 18)"></circle>
+                                <circle id="donut-segment-arac" cx="18" cy="18" r="15.9155" class="stroke-current text-brand-purple donut-segment" fill="transparent" stroke-width="3.8" stroke-dasharray="0, 100" transform="rotate(-90 18 18)"></circle>
+                            </svg>
+                             <div id="donut-center-text" class="absolute inset-0 flex items-center justify-center flex-col text-center">
+                                <span class="text-xs text-zinc-400">Araç Payı</span>
+                                <span id="arac-percent" class="text-2xl font-bold text-white">0%</span>
+                            </div>
+                        </div>
+                        <div id="donut-legend" class="w-full space-y-3">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-dark-border pt-6 mt-6">
+                    <h3 class="text-md font-semibold text-zinc-400 mb-3">Ek Analizler</h3>
+                    <div id="amortization-info" class="p-4 bg-dark-bg/50 border border-dark-border rounded-lg text-center text-zinc-300"></div>
+                     <div id="comparison-info" class="mt-4 p-4 bg-dark-bg/50 border border-dark-border rounded-lg text-center text-zinc-300 hidden"></div>
+                </div>
+            </div>
+             <p class="text-xs text-zinc-500 mt-4 text-center">
+                * Hesaplamalar, güncel ÖTV ve KDV oranlarına göre yapılmıştır. Bu araç yalnızca bilgilendirme amaçlıdır.
+            </p>
+        </div>
+
+        <div>
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-extrabold">Türkiye'nin En Uygun Fiyatlı Sıfır Araçları</h2>
+                <p class="text-zinc-400 mt-2">Piyasadaki en bütçe dostu seçeneklere göz atın.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-6 text-center flex flex-col">
+                    <h3 class="text-xl font-bold text-white">Hyundai i10</h3>
+                    <p class="text-zinc-400 text-sm mb-4">1.0 MPI 67 PS Jump</p>
+                    <div class="my-4">
+                        <a href="#" class="bg-brand-purple text-white text-xl font-bold py-2 px-5 rounded-lg inline-block">835.000 ₺</a>
+                    </div>
+                    <p class="text-zinc-300 text-sm flex-grow mb-5">Ekonomik motoru ve kompakt boyutları ile şehir içi için mükemmel bir seçenek.</p>
+                    <a href="LINK_BURAYA_GELECEK_1" class="mt-auto w-full bg-dark-border hover:bg-zinc-600 text-white font-semibold py-2 rounded-lg transition-colors">Detayları Gör</a>
+                </div>
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-6 text-center flex flex-col">
+                     <h3 class="text-xl font-bold text-white">Kia Picanto</h3>
+                    <p class="text-zinc-400 text-sm mb-4">1.0L 67 PS Feel</p>
+                    <div class="my-4">
+                        <a href="#" class="bg-brand-purple text-white text-xl font-bold py-2 px-5 rounded-lg inline-block">880.000 ₺</a>
+                    </div>
+                    <p class="text-zinc-300 text-sm flex-grow mb-5">Modern tasarımı ve pratik kullanımıyla öne çıkan bir şehir otomobili.</p>
+                    <a href="LINK_BURAYA_GELECEK_2" class="mt-auto w-full bg-dark-border hover:bg-zinc-600 text-white font-semibold py-2 rounded-lg transition-colors">Detayları Gör</a>
+                </div>
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-6 text-center flex flex-col">
+                    <h3 class="text-xl font-bold text-white">Fiat Egea</h3>
+                    <p class="text-zinc-400 text-sm mb-4">1.4 Fire 95 HP Easy</p>
+                    <div class="my-4">
+                        <a href="#" class="bg-brand-purple text-white text-xl font-bold py-2 px-5 rounded-lg inline-block">969.900 ₺</a>
+                    </div>
+                    <p class="text-zinc-300 text-sm flex-grow mb-5">Geniş iç hacmi ve uygun fiyatıyla Türkiye'nin en çok tercih edilen modellerinden.</p>
+                    <a href="LINK_BURAYA_GELECEK_3" class="mt-auto w-full bg-dark-border hover:bg-zinc-600 text-white font-semibold py-2 rounded-lg transition-colors">Detayları Gör</a>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center pt-8">
+            <p class="text-sm text-zinc-500">&copy; 2024 Araç Fiyat Analizi. Tüm hakları saklıdır.</p>
+            <div class="text-xs text-zinc-600 mt-2">
+               <a href="#" class="hover:underline hover:text-zinc-400 transition-colors">Gizlilik Politikası</a>
+               <span class="mx-2">|</span>
+               <a href="#" class="hover:underline hover:text-zinc-400 transition-colors">Kullanım Şartları</a>
+            </div>
+            <div class="mt-4">
+                <a href="mailto:bilgi@aracfiyatanalizi.com" class="text-sm text-zinc-500 hover:text-zinc-300 hover:underline transition-colors">bilgi@aracfiyatanalizi.com</a>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const KDV_RATE = 0.20;
+            const MINIMUM_WAGE_TRY = 26005.50;
+            const TAX_BRACKETS = {
+                gasoline_diesel: {
+                    label: 'Motor Silindir Hacmi',
+                    options: {
+                        '1600cc_and_below': '1600 cm³ ve altı',
+                        '1601_2000cc': '1601 - 2000 cm³ arası',
+                        '2001cc_and_above': '2001 cm³ ve üzeri',
+                    },
+                    brackets: {
+                        '1600cc_and_below': [
+                            { base_max: 184000, rate: 0.45 }, { base_max: 220000, rate: 0.50 },
+                            { base_max: 250000, rate: 0.60 }, { base_max: 280000, rate: 0.70 },
+                            { base_max: Infinity, rate: 0.80 },
+                        ],
+                        '1601_2000cc': [
+                            { base_max: 170000, rate: 1.30 }, { base_max: Infinity, rate: 1.50 },
+                        ],
+                        '2001cc_and_above': [
+                            { base_max: Infinity, rate: 2.20 },
+                        ]
+                    }
+                },
+                hybrid: {
+                    label: 'Motor Silindir Hacmi',
+                    options: {
+                        '1800cc_and_below': '1800 cm³ ve altı (>50kW)',
+                        '1801_2000cc': '1801-2000 cm³ arası (>50kW)',
+                        '2001_2500cc': '2001-2500 cm³ arası (>100kW)',
+                        '2501cc_and_above': '2501 cm³ ve üzeri',
+                    },
+                    brackets: {
+                        '1800cc_and_below': [
+                            { base_max: 228000, rate: 0.45 }, { base_max: 350000, rate: 0.50 },
+                            { base_max: Infinity, rate: 0.80 },
+                        ],
+                        '1801_2000cc': [
+                            { base_max: 170000, rate: 1.30 }, { base_max: Infinity, rate: 1.50 },
+                        ],
+                        '2001_2500cc': [
+                            { base_max: Infinity, rate: 2.20 },
+                        ],
+                        '2501cc_and_above': [
+                            { base_max: Infinity, rate: 2.20 },
+                        ]
+                    }
+                },
+                electric: {
+                    label: 'Motor Gücü',
+                    options: {
+                        '160kw_and_below': '160 kW ve altı', '161kw_and_above': '161 kW ve üzeri',
+                    },
+                    brackets: {
+                        '160kw_and_below': [
+                            { base_max: 1450000, rate: 0.10 }, { base_max: Infinity, rate: 0.40 },
+                        ],
+                        '161kw_and_above': [
+                            { base_max: 1350000, rate: 0.50 }, { base_max: Infinity, rate: 0.60 },
+                        ],
+                    }
+                }
+            };
+
+            const form = document.getElementById('tax-form');
+            const priceInput = document.getElementById('price');
+            const vehicleTypeSelect = document.getElementById('vehicle-type');
+            const engineSpecContainer = document.getElementById('engine-spec-container');
+            const engineSpecSelect = document.getElementById('engine-spec');
+            const resultsDiv = document.getElementById('results');
+            const errorMessageDiv = document.getElementById('error-message');
+            const submitButton = document.getElementById('submit-button');
+            const buttonText = document.getElementById('button-text');
+            const buttonSpinner = document.getElementById('button-spinner');
+            
+            function formatCurrency(value) {
+                return value.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+            }
+            
+            function updateEngineSpecOptions() {
+                const vehicleType = vehicleTypeSelect.value;
+                const specData = TAX_BRACKETS[vehicleType];
+                if (engineSpecContainer) {
+                    engineSpecContainer.querySelector('label').textContent = specData.label;
+                }
+                if (engineSpecSelect) {
+                    engineSpecSelect.innerHTML = '';
+                    for (const [value, text] of Object.entries(specData.options)) {
+                        const option = document.createElement('option');
+                        option.value = value;
+                        option.textContent = text;
+                        engineSpecSelect.appendChild(option);
+                    }
+                }
+            }
+            
+            function findBasePrice(finalPrice, vehicleType, engineSpec) {
+                const bracketSet = TAX_BRACKETS[vehicleType]?.brackets[engineSpec];
+                if (!bracketSet) return null;
+
+                for (const bracket of bracketSet) {
+                    const { base_max, rate } = bracket;
+                    const theoreticalBasePrice = finalPrice / ((1 + rate) * (1 + KDV_RATE));
+                    const currentBracketIndex = bracketSet.indexOf(bracket);
+                    const previousBaseMax = currentBracketIndex > 0 ? bracketSet[currentBracketIndex - 1].base_max : 0;
+                    if (theoreticalBasePrice > previousBaseMax && theoreticalBasePrice <= base_max) {
+                        const basePrice = theoreticalBasePrice;
+                        const priceWithOtv = basePrice * (1 + rate);
+                        const otvAmount = priceWithOtv - basePrice;
+                        const kdvAmount = finalPrice - priceWithOtv;
+                        return {
+                            basePrice, otvRate: rate, otvAmount, kdvAmount,
+                            totalTax: otvAmount + kdvAmount, finalPrice,
+                        };
+                    }
+                }
+                return null;
+            }
+
+            function updateDonutChart(data) {
+                const kdvPercent = (data.kdvAmount / data.finalPrice) * 100;
+                const otvPercent = (data.otvAmount / data.finalPrice) * 100;
+                const aracPercent = 100 - kdvPercent - otvPercent;
+
+                const kdvSegment = document.getElementById('donut-segment-kdv');
+                const otvSegment = document.getElementById('donut-segment-otv');
+                const aracSegment = document.getElementById('donut-segment-arac');
+                const legendDiv = document.getElementById('donut-legend');
+                
+                const aracOffset = 0;
+                const otvOffset = aracPercent;
+                const kdvOffset = aracPercent + otvPercent;
+
+                aracSegment.style.strokeDasharray = `${aracPercent} ${100 - aracPercent}`;
+                aracSegment.style.strokeDashoffset = -aracOffset;
+                otvSegment.style.strokeDasharray = `${otvPercent} ${100 - otvPercent}`;
+                otvSegment.style.strokeDashoffset = -otvOffset;
+                kdvSegment.style.strokeDasharray = `${kdvPercent} ${100 - kdvPercent}`;
+                kdvSegment.style.strokeDashoffset = -kdvOffset;
+
+                document.getElementById('arac-percent').textContent = `${aracPercent.toFixed(1)}%`;
+
+                legendDiv.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="w-4 h-4 rounded-full bg-brand-purple mr-3"></span>
+                        <div class="flex-grow flex justify-between">
+                            <span class="text-zinc-400">Araç Bedeli</span>
+                            <span class="font-semibold text-white">${formatCurrency(data.basePrice)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-4 h-4 rounded-full bg-orange-500 mr-3"></span>
+                        <div class="flex-grow flex justify-between">
+                            <span class="text-zinc-400">ÖTV</span>
+                            <span class="font-semibold text-white">${formatCurrency(data.otvAmount)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-4 h-4 rounded-full bg-red-500 mr-3"></span>
+                        <div class="flex-grow flex justify-between">
+                            <span class="text-zinc-400">KDV</span>
+                            <span class="font-semibold text-white">${formatCurrency(data.kdvAmount)}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function displayResults(data) {
+                document.getElementById('base-price').textContent = formatCurrency(data.basePrice);
+                document.getElementById('otv-rate').textContent = `%${(data.otvRate * 100).toFixed(0)}`;
+                document.getElementById('otv-amount').textContent = formatCurrency(data.otvAmount);
+                document.getElementById('kdv-amount').textContent = formatCurrency(data.kdvAmount);
+                document.getElementById('total-tax').textContent = formatCurrency(data.totalTax);
+                document.getElementById('final-price').textContent = formatCurrency(data.finalPrice);
+                updateDonutChart(data);
+                const monthsToPayTax = data.totalTax / MINIMUM_WAGE_TRY;
+                const amortizationInfoDiv = document.getElementById('amortization-info');
+                amortizationInfoDiv.innerHTML = `Bu aracın sadece <b class="text-red-400">vergisi için</b>, ${MINIMUM_WAGE_TRY.toLocaleString('tr-TR')} TL'lik asgari ücretle yaklaşık <b class="text-white">${monthsToPayTax.toFixed(1)} ay</b> çalışmanız gerekiyor.`;
+                const comparisonInfoDiv = document.getElementById('comparison-info');
+                if (vehicleTypeSelect.value === 'gasoline_diesel' || vehicleTypeSelect.value === 'hybrid') {
+                    const electricEquivalent = findBasePrice(data.finalPrice, 'electric', '160kw_and_below');
+                    if(electricEquivalent && electricEquivalent.totalTax < data.totalTax){
+                        const taxSaving = data.totalTax - electricEquivalent.totalTax;
+                        comparisonInfoDiv.innerHTML = `Aynı fiyata <b class="text-brand-purple">elektrikli bir araç</b> alsaydınız, yaklaşık <b class="text-green-400">${formatCurrency(taxSaving)}</b> daha az vergi ödeyebilirdiniz.`;
+                        comparisonInfoDiv.classList.remove('hidden');
+                    } else {
+                        comparisonInfoDiv.classList.add('hidden');
+                    }
+                } else {
+                    comparisonInfoDiv.classList.add('hidden');
+                }
+                errorMessageDiv.classList.add('hidden');
+                resultsDiv.classList.add('show');
+                
+                setTimeout(() => {
+                    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100); 
+            }
+            
+            function displayError(message) {
+                errorMessageDiv.textContent = message;
+                errorMessageDiv.classList.remove('hidden');
+                resultsDiv.classList.remove('show');
+            }
+
+            function toggleButtonState(isLoading) {
+                submitButton.disabled = isLoading;
+                if(isLoading) {
+                    buttonText.classList.add('hidden');
+                    buttonSpinner.classList.remove('hidden');
+                } else {
+                    buttonText.classList.remove('hidden');
+                    buttonSpinner.classList.add('hidden');
+                }
+            }
+            
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                toggleButtonState(true);
+                setTimeout(() => {
+                    const finalPriceRaw = priceInput.value.replace(/\./g, '').replace(',', '.');
+                    const finalPrice = parseFloat(finalPriceRaw);
+                    const vehicleType = vehicleTypeSelect.value;
+                    const engineSpec = engineSpecSelect.value;
+
+                    if (isNaN(finalPrice) || finalPrice <= 0) {
+                        displayError('Lütfen geçerli bir fiyat giriniz.');
+                        toggleButtonState(false);
+                        return;
+                    }
+                    const results = findBasePrice(finalPrice, vehicleType, engineSpec);
+                    if (results) {
+                        displayResults(results);
+                    } else {
+                        displayError('Girdiğiniz bilgilere uygun bir vergi dilimi bulunamadı. Lütfen fiyatı veya seçenekleri kontrol ediniz.');
+                    }
+                    toggleButtonState(false);
+                }, 500);
+            });
+
+            vehicleTypeSelect.addEventListener('change', updateEngineSpecOptions);
+            
+            priceInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                e.target.value = value ? parseInt(value, 10).toLocaleString('tr-TR') : '';
+            });
+            
+            updateEngineSpecOptions();
+        });
+    </script>
+</body>
+</html>
