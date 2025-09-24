@@ -8,11 +8,6 @@
 A sleek, single-page web application designed to demystify the complex tax structure of new vehicles in Turkey. This tool provides a detailed breakdown of a vehicle's final price, reverse-calculating the base cost from the turnkey price and clearly visualizing the amounts for ÖTV (Special Consumption Tax) and KDV (VAT).
 
 ---
-
-*Replace the URL below with a path to a screenshot of your application to make this README more engaging.*
-
-![Application Screenshot](https-path-to-your-project-screenshot.png)
-
 ---
 
 ### ✨ Key Features
@@ -47,7 +42,7 @@ This project is entirely self-contained in a single HTML file and requires no in
 
 1.  **Clone or download the repository:**
     ```bash
-    git clone [https://github.com/vkaiber/arac-vergisi-hesaplayici.git](https://github.com/vkaiber/arac-vergisi-hesaplayici.git)
+    git clone [https://github.com/vkaiber/arac-vergisi-hesaplayici.git]
     ```
 2.  **Open the file:**
     -   Navigate to the project directory and open the `index.html` file in any modern web browser.
